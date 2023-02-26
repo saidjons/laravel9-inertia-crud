@@ -1,0 +1,129 @@
+
+<script>
+
+import stringToSlug from '@/plugins/stringToSlug';
+export default {
+  
+    components: {
+		stringToSlug,
+    },
+     	beforeMount() {
+				 
+          {{onMountedSetFieldEdit}}
+     
+				this.id = this.$page.props.model.id
+		
+	},
+  methods: {
+				setErrors(d){
+				 
+						let errors = this.flattenObject(d)
+					let values = Object.values(errors)
+					values = [...values]
+			 			this.errors = values 
+				},
+				 flattenObject(ob) {
+					var toReturn = {};
+
+					for (var i in ob) {
+							if (!ob.hasOwnProperty(i)) continue;
+
+							if ((typeof ob[i]) == 'object' && ob[i] !== null) {
+									var flatObject = this.flattenObject(ob[i]);
+									for (var x in flatObject) {
+											if (!flatObject.hasOwnProperty(x)) continue;
+
+											toReturn[i + '.' + x] = flatObject[x];
+									}
+							} else {
+									toReturn[i] = ob[i];
+							}
+					}
+					return toReturn;
+			},
+
+				
+				{{method}}
+     
+    edit(){
+			this.errors = null
+			 window.axios.put(`/api/{{modelPl}}/${this.id}`,{
+				headers: { 
+					'Accept':'application/json',
+					'X-CSRF-TOKEN' : this.$page.props.csrf,
+      'Authorization' : 'Bearer ' + this.$page.props.user.token
+			
+			} ,
+					{{postField}}
+			}) 
+				.then(res=> { 
+					console.log(res);
+					   if (res.status ==200) {
+						 window.notify(res.message)
+					 }else{
+						 this.setErrors(res.data)
+					 }
+			  }) 
+			.catch(error=> {
+				this.errors = Object.values(this.flattenObject(error.response.data.errors));
+				if(this.errors){
+					window.notify(this.errors[0],'tip')
+
+				}
+
+			 });
+    
+			 
+		 
+    }
+  },
+  
+  
+  data() {
+    return {
+			{{dataField}}
+			errors:[],
+			id:null,
+    }
+  },
+}
+</script>
+
+
+<template>
+
+    <AdminLayout>
+         <template v-slot:content>
+     
+
+        <div class="p-6 overflow-hidden bg-white rounded-md shadow-md dark:bg-dark-eval-1">
+            <div class="w-4/5 justify-center text-left mx-5 ">
+  <div class="bg-white rounded px-2 pt-6 pb-8 mb-4">
+	<template v-if='errors' >
+	<error-message :error='error' v-for='error in errors' :key='error'/>
+	</template>
+ 
+	 	{{createHtmlField}}
+
+  </div><!-- end of wrapper-->
+
+  <!-- buttons start -->
+      <div class="flex items-center justify-between">
+      <button 
+            @click='edit'
+      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button">
+        Update post
+      </button>
+      <a class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="#">
+        cancel
+      </a>
+    </div>
+  <!-- buttons end -->
+ 
+</div>
+
+        </div>
+  </template>
+
+    </AdminLayout>
+</template>

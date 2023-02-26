@@ -1,0 +1,6 @@
+@import 'notify.css';
+@import 'spectre.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+

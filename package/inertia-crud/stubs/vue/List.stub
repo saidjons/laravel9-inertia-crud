@@ -1,0 +1,280 @@
+<script>
+import InputField from "@/Components/Fields/Input.vue";
+import CellAction from "@/Components/Tables/TableUI/CellAction.vue";
+import { getUrlWithoutQuery } from "@/plugins/functions";
+
+export default {
+  components: {
+    InputField,
+    CellAction,
+  },
+  mounted() {
+    
+ 
+    if (this.getUrlParameter("per_page")) {
+      this.perPage = this.getUrlParameter("per_page");
+    }
+    this.setData();
+    this.serverItemsLength = this.items.length;
+  },
+
+  methods: {
+    getUrlParameter(sParam) {
+      var sPageURL = window.location.search.substring(1),
+        sURLVariables = sPageURL.split("&"),
+        sParameterName,
+        i;
+
+      for (i = 0; i < sURLVariables.length; i++) {
+        sParameterName = sURLVariables[i].split("=");
+
+        if (sParameterName[0] === sParam) {
+          return sParameterName[1] === undefined
+            ? true
+            : decodeURIComponent(sParameterName[1]);
+        }
+      }
+      return false;
+    },
+    searchAction() {
+      this.setData();
+    },
+    setSearch(d) {
+      this.search = d.value;
+    },
+    deleteItem(data) {
+      axios
+        .delete(this.$restifyApiUrl + "/{{modelPl}}/" + data, {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": this.$page.props.csrf,
+            "Authorization": "Bearer " + this.$page.props.user.token,
+          },
+          id: data,
+        })
+        .then((response) => {
+          window.notify("Deleted ");
+          this.setData();
+        })
+        .catch((error) => {});
+    },
+
+    async setData() {
+      var data = {
+        perPage: this.perPage,
+      };
+      if (this.serverOptions.sortType == "desc") {
+        data["sort"] = "-" + this.serverOptions.sortBy;
+      } else {
+        data["sort"] = this.serverOptions.sortBy;
+      }
+      if (this.search.trim().length > 0) {
+        data["search"] = this.search;
+      }
+      if (
+        this.currentPage > 0 &&
+        this.pagData &&
+        this.currentPage < this.pagData.meta.last_page
+      ) {
+        data["page"] = this.currentPage;
+      }
+      var url = new URL(
+        window.location.protocol + window.location.host + this.$restifyApiUrl + "/{{modelPl}}"
+      );
+      for (let k in data) {
+        url.searchParams.append(k, data[k]);
+      }
+
+      const rawResponse = await fetch(url, {
+        method: "get",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": this.$page.props.csrf,
+          Authorization: "Bearer " + this.$page.props.user.token,
+        },
+      });
+
+      const content = await rawResponse.json();
+      this.items = content.data;
+      this.currentPage = content.meta.current_page;
+      this.pagData = {
+        links: content.links,
+        meta: content.meta,
+      };
+      if (this.items.length == 0) {
+        window.notify("Nothing found,Sorry", "info");
+      }
+      this.lastPage = content.meta.last_page;
+      this.currentPage = content.meta.current_page;
+    },
+    getObjectKey(value, o) {
+      let returnValue = "";
+      Object.keys(o).forEach((el) => {
+        if (o[el] == value) {
+          returnValue = el;
+        }
+      });
+      return returnValue;
+    },
+
+    nextPage() {
+      if (this.currentPage < this.pagData.meta.last_page) {
+        this.currentPage++;
+        this.setData();
+        return;
+      }
+      window.notify("this is the last page", "info");
+
+      // this.updateWindowUrl()
+    },
+    prevPage() {
+      if (this.currentPage > 1 && this.currentPage <= this.pagData.meta.last_page) {
+        this.currentPage--;
+
+        this.setData();
+        return;
+      }
+      window.notify("this is the last page", "info");
+    },
+    updateUrlQuery() {
+      var url = new URL(getUrlWithoutQuery());
+      var search_params = url.searchParams;
+
+      // new value of "id" is set to "101"
+      search_params.set("page", this.currentPage);
+      if (this.search.trim().length > 0) {
+        search_params.set("search", this.search);
+      }
+
+      // set sortby param
+      if (this.serverOptions.sortType == "desc") {
+        search_params.set("sort", "-" + this.serverOptions.sortBy);
+      } else {
+        search_params.set("sort", this.serverOptions.sortBy);
+      }
+
+      search_params.set("per_page", this.perPage);
+      // change the search property of the main url
+      url.search = search_params.toString();
+      // the new url string
+      var new_url = url.toString();
+
+      window.history.pushState({ path: new_url }, "", new_url);
+    },
+    updatePage() {
+      // not emitting the event
+    },
+    setSort(sortOptions) {
+      if (sortOptions) {
+        this.serverOptions.sortType = sortOptions.sortType;
+
+        this.serverOptions.sortBy = sortOptions.sortBy;
+        return;
+      }
+      this.serverOptions.sortType = "asc";
+      this.serverOptions.sortBy = "id";
+    },
+    updateSort(sortOptions) {
+      this.setSort(sortOptions);
+      this.setData();
+    },
+  },
+  watch: {
+    serverOptions(n) {},
+    items(n) {
+      this.serverItemsLength = this.items.length;
+      this.updateUrlQuery();
+    },
+    
+  },
+  data() {
+    return {
+     
+
+        headings: [
+            {{ tableHeadingItems }}
+					],
+      items: [],
+      selectedRows: [],
+      showHeadings: [],
+
+      search: "",
+      open: false,
+      perPage: 10,
+      currentPage: 1,
+      lastPage: null,
+      itemsSelected: [],
+      serverItemsLength: 0,
+      serverOptions: {
+        page: 1,
+        rowsPerPage: 10,
+        sortBy: "id",
+        sortType: "asc",
+      },
+      pagData: null,
+      isFirstPage: false,
+      isLastPage: false,
+      currentPaginationNumber: 1,
+      maxPaginationNumber: 20,
+      nextPageNum: 3,
+      prevPageNum: 1,
+    };
+  },
+};
+</script>
+
+<template>
+  <AdminLayout>
+    <template v-slot:content>
+      <div
+        class="container bg-white rounded-md shadow-md dark:bg-dark-eval-1 antialiased sans-serif px-4 mb-5"
+      >
+        <h1 class="text-3xl border-b mb-3">{{ modelPl }}</h1>
+        <InputField
+          class=""
+          action="Search"
+          @btnClicked="searchAction"
+          @inputChanged="setSearch"
+        />
+
+        <!-- table start  -->
+        <!-- heading  -->
+        <EasyDataTable
+          :sort-by="serverOptions.sortBy"
+          :sort-type="serverOptions.sortType"
+          :headers="headings"
+          :items="items"
+          alternating
+          v-model:items-selected="itemsSelected"
+          :server-items-length="serverItemsLength"
+          @update-sort="updateSort"
+        >
+          <template #item-action="{ id, word }">
+            <CellAction :id="id" @deleteItem="deleteItem"></CellAction>
+          </template>
+          <template
+            #pagination="{
+              isFirstPage,
+              isLastPage,
+              currentPaginationNumber,
+              maxPaginationNumber,
+              nextPageNum,
+              prevPageNum,
+            }"
+            @updatePage="updatePage"
+          >
+            Current Page: {{ currentPage }} /
+            <button class="px-2 py-1 mx-2 hover:bg-green-400 ring-1" @click="prevPage">
+              prev page
+            </button>
+            <button class="px-2 py-1 mx-2 hover:bg-green-400 ring-1" @click="nextPage">
+              next page
+            </button>
+          </template>
+        </EasyDataTable>
+      </div>
+    </template>
+  </AdminLayout>
+</template>
